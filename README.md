@@ -126,9 +126,6 @@ Then, reload the udev rules:
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-### Windows
-Ensure that the libusb driver is installed for the device. You may need to use Zadig (http://zadig.akeo.ie/) to install the correct driver.
-
 ## Contributing
 
 Contributions to this project are welcome. Please fork the repository and submit a pull request with your changes.
