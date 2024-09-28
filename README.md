@@ -61,6 +61,7 @@ It allows users to configure device settings, set frequencies, and monitor devic
    ```
 
 4. Build the project:
+
    For Windows (Visual Studio 2022):
    Open the sln
    
