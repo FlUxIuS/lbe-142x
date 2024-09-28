@@ -48,7 +48,7 @@ if(WIN32)
 	set(LIBUSB_INCLUDE_DIR "${LIBUSB_ROOT}/include")
     if(MINGW)
         # MinGW64 specific settings
-		set(LIBUSB_LIBRARY_DIR "${LIBUSB_ROOT}/MinGW64/static")
+	set(LIBUSB_LIBRARY_DIR "${LIBUSB_ROOT}/MinGW64/static")
     elseif(MSVC)
         # Visual Studio 2022 specific settings
         set(LIBUSB_LIBRARY_DIR "${LIBUSB_ROOT}/VS2022/MS64/static")
