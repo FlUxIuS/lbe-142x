@@ -40,38 +40,39 @@ It allows users to configure device settings, set frequencies, and monitor devic
      (The directory structure should look like: `lbe-142x/libusb/include`, `lbe-142x/libusb/MinGW64`, etc.)
 
 3. Create a build directory and run CMake:
-For Windows (Visual Studio 2022):
-   ```
-   rm -rf build_VS2022
-   mkdir build_VS2022 && cd build_VS2022
-   cmake -G "Visual Studio 17 2022" -A x64 ..
-   ```
-For Windows MinGW64:
-   ```
-   rm -rf build_MinGW64
-   mkdir build_MinGW64 && cd build_MinGW64
-   cmake -G "MinGW Makefiles" ..
-   ```
-For GNU/Linux:
-   ```
-   rm -rf build
-   mkdir build && cd build
-   cmake ..
+
+   For Windows (Visual Studio 2022):
+      ```
+      rm -rf build_VS2022
+      mkdir build_VS2022 && cd build_VS2022
+      cmake -G "Visual Studio 17 2022" -A x64 ..
+      ```
+   For Windows MinGW64:
+      ```
+      rm -rf build_MinGW64
+      mkdir build_MinGW64 && cd build_MinGW64
+      cmake -G "MinGW Makefiles" ..
+      ```
+   For GNU/Linux:
+      ```
+      rm -rf build
+      mkdir build && cd build
+      cmake ..
    ```
 
 4. Build the project:
-For Windows (Visual Studio 2022):
-Open the sln
-
-For MinGW64 and GNU/Linux:
-   ```
-   cmake --build .
-   ```
-
-   For a specific build type (e.g., Debug as it is Release by default):
-   ```
-   cmake --build . --config Debug
-   ```
+   For Windows (Visual Studio 2022):
+   Open the sln
+   
+   For MinGW64 and GNU/Linux:
+      ```
+      cmake --build .
+      ```
+   
+      For a specific build type (e.g., Debug as it is Release by default):
+      ```
+      cmake --build . --config Debug
+      ```
 
 ## Usage
 
