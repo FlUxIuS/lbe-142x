@@ -10,9 +10,9 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up MSVC
-      uses: microsoft/setup-msbuild@v1.0.2
+      uses: microsoft/setup-msbuild@v2
     - name: Set up CMake
       uses: lukka/get-cmake@latest
     - name: Download and extract libusb
@@ -24,7 +24,7 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config Release
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: lbe-142x-windows
         path: ${{github.workspace}}/build/bin/Release/lbe-142x.exe
@@ -35,7 +35,7 @@ jobs:
         os: [ubuntu-22.04, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up CMake
       uses: lukka/get-cmake@latest
     - name: Install dependencies
@@ -47,7 +47,7 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: lbe-142x-linux-${{ matrix.os }}
         path: ${{github.workspace}}/build/bin/lbe-142x
