@@ -2,8 +2,9 @@ name: Build Windows & GNU/Linux (ubuntu-22.04 and ubuntu-24.04)
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build-windows:
