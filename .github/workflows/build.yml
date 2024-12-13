@@ -27,8 +27,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: lbe-142x-windows
-        path: ${{github.workspace}}/build/bin/Release/lbe-142x.exe
-        path: ${{github.workspace}}/build/bin/Release/libusb-1.0.dll
+        path: |
+          ${{github.workspace}}/build/bin/Release/lbe-142x.exe
+          ${{github.workspace}}/build/bin/Release/libusb-1.0.dll
   
   build-linux:
     strategy:
