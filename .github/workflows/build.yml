@@ -1,5 +1,4 @@
 name: Build Windows & GNU/Linux
-
 on:
   push:
     branches: [ main ]
@@ -7,7 +6,6 @@ on:
       - 'v*'
   pull_request:
     branches: [ main ]
-
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -54,7 +52,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{github.workspace}}/lbe-142x_${{ steps.get_version.outputs.version }}-windows.zip
+        name: lbe-142x_${{ steps.get_version.outputs.version }}-windows.zip
         path: lbe-142x_${{ steps.get_version.outputs.version }}-windows.zip
 
   build-linux:
@@ -71,7 +69,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libudev-dev
+        sudo apt-get install -y libudev-dev libusb-1.0-0-dev
         
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release
@@ -103,5 +101,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{github.workspace}}/lbe-142x_${{ steps.get_version.outputs.version }}-${{ matrix.os }}.tar.gz
+        name: lbe-142x_${{ steps.get_version.outputs.version }}-${{ matrix.os }}.tar.gz
         path: lbe-142x_${{ steps.get_version.outputs.version }}-${{ matrix.os }}.tar.gz
