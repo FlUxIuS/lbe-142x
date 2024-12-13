@@ -2,16 +2,23 @@
 
 This project provides a cross-platform configuration tool for Leo Bodnar LBE-1420 (single output) and LBE-1421 (dual output) GPS locked clock source devices.
 
-It allows users to configure device settings, set frequencies, and monitor device status on both Windows and GNU/Linux systems (tested on Ubuntu24.04LTS x64).
+It allows users to configure device settings, set frequencies, and monitor device status on both Windows and GNU/Linux systems (tested on Native Windows11 x64 & Native Ubuntu24.04LTS x64).
 
 ## Features
 
-- Support for both LBE-1420 (single output) and LBE-1421 (dual output) models
+### Basic Features (Both Models LBE-1420/LBE-1421)
 - Cross-platform compatibility (Windows and GNU/Linux)
-- Set output frequencies
+- Set output frequencies with fractional Hz precision
 - Enable/disable outputs
-- Blink device LEDs
-- Retrieve and display device status
+- Blink device LEDs for identification
+- Retrieve and display comprehensive device status
+
+### Advanced Features (LBE-1421 Only)
+- Dual output frequency control
+- PLL/FLL mode selection
+- 1PPS on OUT1 (Pulse Per Second) output configuration
+- Output power level control (normal/low power)
+- Temporary frequency settings without EEPROM save
 
 ## Prerequisites
 
@@ -24,6 +31,11 @@ It allows users to configure device settings, set frequencies, and monitor devic
 - GCC or Clang
 - CMake (version 3.10 or higher)
 - libudev-dev
+  - Ubuntu install libudev-dev dependency
+   ```
+   sudo apt update
+   sudo apt install libudev-dev
+   ```
 
 ## Building the Project
 
@@ -58,19 +70,19 @@ It allows users to configure device settings, set frequencies, and monitor devic
       rm -rf build
       mkdir build && cd build
       cmake ..
-   ```
+      ```
 
 4. Build the project:
 
    For Windows (Visual Studio 2022):
-   Open the sln
+   Open the generated solution file and build using Visual Studio
    
    For MinGW64 and GNU/Linux:
       ```
-      cmake --build .
+      cmake --build . --config Release
       ```
    
-      For a specific build type (e.g., Debug as it is Release by default):
+      For a specific build type (default is Release):
       ```
       cmake --build . --config Debug
       ```
@@ -80,31 +92,70 @@ It allows users to configure device settings, set frequencies, and monitor devic
 After building the project, you can run the `lbe-142x` executable with various command-line options:
 
 ```
+lbe-142x v1.0 13 Dec 2024 Leo Bodnar LBE-142x GPS locked clock source config
 Usage: lbe-142x [OPTIONS]
 Options:
-  --f1 <freq>       Set frequency for output 1 (1-1400000000 Hz) and save to flash
-  --f2 <freq>       Set frequency for output 2 (1-1400000000 Hz) and save to flash (LBE-1421 only)
-  --out <0|1>       Enable or disable outputs
-  --blink           Blink output LED(s) for 3 seconds
-  --status          Display current device status
+  --f1 <freq>     Set frequency for output 1 (1-1400000000 Hz) and save to flash
+  --f1t <freq>    Set temporary frequency for output 1
+  --f2 <freq>     Set frequency for output 2 (1-1400000000 Hz) and save to flash (LBE-1421 only)
+  --f2t <freq>    Set temporary frequency for output 2 (LBE-1421 only)
+  --out <0|1>     Enable or disable outputs
+  --pll <0|1>     Set PLL(0) or FLL(1) mode (LBE-1421 only)
+  --pps <0|1>     Enable or disable 1PPS on OUT1 (LBE-1421 only)
+  --pwr1 <0|1>    Set OUT1 power level: normal(0) or low(1)
+  --pwr2 <0|1>    Set OUT2 power level: normal(0) or low(1) (LBE-1421 only)
+  --blink         Blink output LED(s) for 3 seconds
+  --status        Display current device status
 ```
 
 Examples:
 
-1. Set frequency for output 1 to 10 MHz:
+1. Set frequency for output 1 to 10 MHz and save to flash:
    ```
    ./lbe-142x --f1 10000000
    ```
 
-2. Enable outputs:
+2. Set temporary frequency for output 2 to 10.5 MHz (LBE-1421 only):
    ```
-   ./lbe-142x --out 1
+   ./lbe-142x --f2t 10500000
    ```
 
-3. Display device status:
+3. Enable FLL mode (LBE-1421 only):
+   ```
+   ./lbe-142x --pll 1
+   ```
+
+4. Enable 1PPS on OUT1 (LBE-1421 only):
+   ```
+   ./lbe-142x --pps 1
+   ```
+
+5. Set low power mode for output 1:
+   ```
+   ./lbe-142x --pwr1 1
+   ```
+
+6. Display device status:
    ```
    ./lbe-142x --status
    ```
+
+## Status Display
+
+The `--status` command shows comprehensive device information:
+```
+Device Status (0xXX):
+  GPS Lock: Yes/No
+  PLL Lock: Yes/No
+  Antenna: OK/Short Circuit
+  Output(s) Enabled: Yes/No
+  OUT1 Frequency: XXXXX Hz
+  OUT1 Power Level: Normal/Low
+  OUT2 Frequency: XXXXX Hz (LBE-1421 only)
+  OUT2 Power Level: Normal/Low (LBE-1421 only)
+  Mode: PLL/FLL (LBE-1421 only)
+  1PPS on OUT1: Enabled/Disabled (LBE-1421 only)
+```
 
 ## Troubleshooting
 
@@ -137,4 +188,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Leo Bodnar Electronics for the LBE-142x devices and https://github.com/simontheu/lbe-1420
+- Leo Bodnar Electronics for the LBE-142x devices and documentation / protocol
+- Simon Unsworth (https://github.com/simontheu/lbe-1420) for the initial implementation reference

@@ -48,10 +48,12 @@ if(WIN32)
 	set(LIBUSB_INCLUDE_DIR "${LIBUSB_ROOT}/include")
     if(MINGW)
         # MinGW64 specific settings
-	set(LIBUSB_LIBRARY_DIR "${LIBUSB_ROOT}/MinGW64/static")
+        set(LIBUSB_LIBRARY_DIR "${LIBUSB_ROOT}/MinGW64/static")
+        set(LIBUSB_DLL_DIR "${LIBUSB_ROOT}/MinGW64/dll")
     elseif(MSVC)
         # Visual Studio 2022 specific settings
-        set(LIBUSB_LIBRARY_DIR "${LIBUSB_ROOT}/VS2022/MS64/static")
+        set(LIBUSB_LIBRARY_DIR "${LIBUSB_ROOT}/VS2022/MS64/dll")
+        set(LIBUSB_DLL_DIR "${LIBUSB_ROOT}/VS2022/MS64/dll")
     endif()
 	message(STATUS "LIBUSB_INCLUDE_DIR: ${LIBUSB_INCLUDE_DIR}")
 	find_library(LIBUSB_LIBRARY NAMES "libusb-1.0" PATHS ${LIBUSB_LIBRARY_DIR} NO_DEFAULT_PATH)
@@ -67,8 +69,31 @@ if(WIN32)
 	
 	include_directories(${LIBUSB_INCLUDE_DIR})
 	target_link_libraries(${PROJECT_NAME} ${LIBUSB_LIBRARY})
+
+    # Copy DLL files to output directory post-build
+    if(MINGW)
+        # MinGW needs libusb-1.0.dll
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${LIBUSB_DLL_DIR}/libusb-1.0.dll"
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+    elseif(MSVC)
+        # MSVC needs libusb-1.0.dll
+        file(GLOB LIBUSB_DLLS "${LIBUSB_DLL_DIR}/*.dll")
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${LIBUSB_DLLS}
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+    endif()
 elseif(UNIX AND NOT APPLE)
     # Linux-specific settings
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBUDEV REQUIRED libudev)
+    
+    if(NOT LIBUDEV_FOUND)
+        message(FATAL_ERROR "libudev not found. Please install libudev-dev package (sudo apt install libudev-dev)")
+    endif()
+    
     target_link_libraries(${PROJECT_NAME} udev)
 endif()
 
@@ -95,10 +120,19 @@ endif()
 
 # Installation
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+if(WIN32)
+    # Install DLLs alongside the executable
+    if(MINGW)
+        install(FILES "${LIBUSB_DLL_DIR}/libusb-1.0.dll" DESTINATION bin)
+    elseif(MSVC)
+        file(GLOB LIBUSB_DLLS "${LIBUSB_DLL_DIR}/*.dll")
+        install(FILES ${LIBUSB_DLLS} DESTINATION bin)
+    endif()
+endif()
 
 # Print build information
 message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-message(STATUS "CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID}")
-message(STATUS "CMAKE_CXX_COMPILER_VERSION: ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "CMAKE_C_COMPILER_ID: ${CMAKE_C_COMPILER_ID}")
+message(STATUS "CMAKE_C_COMPILER_VERSION: ${CMAKE_C_COMPILER_VERSION}")

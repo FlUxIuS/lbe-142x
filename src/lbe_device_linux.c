@@ -119,6 +119,21 @@ int lbe_get_device_status(struct lbe_device* dev, struct lbe_status* status) {
 	}
 	status->outputs_enabled = (status->raw_status & 0x7F) == 0x7F;
 	status->fll_enabled = buf[18] != 0;
+
+	// Additional status information for LBE-1421
+	if (dev->model == LBE_1421_DUALOUT) {
+		status->pll_locked = (status->raw_status & LBE_PLL_LOCK_BIT) != 0;
+		status->antenna_ok = (status->raw_status & LBE_ANT_OK_BIT) != 0;
+		status->pps_enabled = (status->raw_status & LBE_PPS_EN_BIT) != 0;
+		status->out1_power_low = buf[19] != 0;
+		status->out2_power_low = buf[20] != 0;
+	} else {
+		status->pll_locked = 0;
+		status->antenna_ok = (status->raw_status & LBE_ANT_OK_BIT) != 0;
+		status->pps_enabled = 0;
+		status->out1_power_low = 0;
+		status->out2_power_low = 0;
+	}
 /*
 	printf("Raw report dump:\n");
 	for (int i = 0; i < REPORT_SIZE; i++) {
@@ -169,6 +184,45 @@ int lbe_set_frequency(struct lbe_device* dev, int output, uint32_t frequency) {
 	return 0;
 }
 
+int lbe_set_frequency_temp(struct lbe_device* dev, int output, uint32_t frequency) {
+	uint8_t buf[REPORT_SIZE] = {0};
+	int res;
+
+	if (dev->model == LBE_1420 && output != 1) {
+		fprintf(stderr, "LBE-1420 only supports output 1\n");
+		return -1;
+	}
+
+	if (dev->model == LBE_1420) {
+		buf[0] = LBE_1421_SET_F1_TEMP;
+		buf[1] = (frequency >>  0) & 0xff;
+		buf[2] = (frequency >>  8) & 0xff;
+		buf[3] = (frequency >> 16) & 0xff;
+		buf[4] = (frequency >> 24) & 0xff;
+	} else { // LBE_1421
+		if (output == 1) {
+			buf[0] = LBE_1421_SET_F1_TEMP;
+		} else if (output == 2) {
+			buf[0] = LBE_1421_SET_F2_TEMP;
+		} else {
+			fprintf(stderr, "Invalid output selection\n");
+			return -1;
+		}
+		buf[5] = (frequency >>  0) & 0xff;
+		buf[6] = (frequency >>  8) & 0xff;
+		buf[7] = (frequency >> 16) & 0xff;
+		buf[8] = (frequency >> 24) & 0xff;
+	}
+
+	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
+	if (res < 0) {
+		perror("HIDIOCSFEATURE");
+		return -1;
+	}
+
+	return 0;
+}
+
 int lbe_set_outputs_enable(struct lbe_device* dev, int enable) {
 	uint8_t buf[REPORT_SIZE] = {0};
 	int res;
@@ -190,6 +244,69 @@ int lbe_blink_leds(struct lbe_device* dev) {
 	int res;
 
 	buf[0] = LBE_142X_BLINK_OUT;
+
+	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
+	if (res < 0) {
+		perror("HIDIOCSFEATURE");
+		return -1;
+	}
+
+	return 0;
+}
+
+int lbe_set_pll_mode(struct lbe_device* dev, int fll_mode) {
+	uint8_t buf[REPORT_SIZE] = {0};
+	int res;
+
+	if (dev->model != LBE_1421_DUALOUT) {
+		fprintf(stderr, "PLL/FLL mode control is only supported on LBE-1421\n");
+		return -1;
+	}
+
+	buf[0] = LBE_1421_SET_PLL;
+	buf[1] = fll_mode ? 0x01 : 0x00;
+
+	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
+	if (res < 0) {
+		perror("HIDIOCSFEATURE");
+		return -1;
+	}
+
+	return 0;
+}
+
+int lbe_set_1pps(struct lbe_device* dev, int enable) {
+	uint8_t buf[REPORT_SIZE] = {0};
+	int res;
+
+	if (dev->model != LBE_1421_DUALOUT) {
+		fprintf(stderr, "1PPS control is only supported on LBE-1421\n");
+		return -1;
+	}
+
+	buf[0] = LBE_1421_SET_PPS;
+	buf[1] = enable ? 0x01 : 0x00;
+
+	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
+	if (res < 0) {
+		perror("HIDIOCSFEATURE");
+		return -1;
+	}
+
+	return 0;
+}
+
+int lbe_set_power_level(struct lbe_device* dev, int output, int low_power) {
+	uint8_t buf[REPORT_SIZE] = {0};
+	int res;
+
+	if (dev->model == LBE_1420 && output != 1) {
+		fprintf(stderr, "LBE-1420 only supports output 1\n");
+		return -1;
+	}
+
+	buf[0] = (output == 1) ? LBE_1421_SET_PWR1 : LBE_1421_SET_PWR2;
+	buf[1] = low_power ? 0x01 : 0x00;
 
 	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
 	if (res < 0) {

@@ -8,7 +8,8 @@
 #include <string.h>
 #include <windows.h>
 
-#define REPORT_SIZE 64
+#define REPORT_SIZE (64)
+#define LIBUSB_CONTROL_TRANSFER_TIMEOUT_MS (5000)
 
 // Fallback definitions for constants that might be missing
 #ifndef LIBUSB_REQUEST_GET_REPORT
@@ -89,6 +90,29 @@ enum lbe_model lbe_get_model(struct lbe_device* dev) {
 	return dev->model;
 }
 
+/* Helper function for feature reports */
+static int send_feature_report(struct lbe_device* dev, const uint8_t* report, size_t length) {
+	if (length > UINT16_MAX) {
+		fprintf(stderr, "Feature report too long\n");
+		return -1;
+	}
+
+	int ret = libusb_control_transfer(dev->handle,
+				LIBUSB_ENDPOINT_OUT | LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE,
+				LIBUSB_REQUEST_SET_REPORT,
+				(LIBUSB_REPORT_TYPE_FEATURE << 8) | report[0],
+				0,
+				(unsigned char*)report,
+				(uint16_t)length,
+				LIBUSB_CONTROL_TRANSFER_TIMEOUT_MS);
+
+	if (ret < 0) {
+		fprintf(stderr, "Failed to send feature report: %s\n", libusb_error_name(ret));
+		return -1;
+	}
+	return 0;
+}
+
 int lbe_get_device_status(struct lbe_device* dev, struct lbe_status* status) {
 	uint8_t buf[REPORT_SIZE] = {0};
 	int ret;
@@ -101,7 +125,7 @@ int lbe_get_device_status(struct lbe_device* dev, struct lbe_status* status) {
 				0,
 				buf,
 				REPORT_SIZE,
-				5000);
+				LIBUSB_CONTROL_TRANSFER_TIMEOUT_MS);
 
 	if (ret < 0) {
 		fprintf(stderr, "Failed to get feature report: %s\n", libusb_error_name(ret));
@@ -118,6 +142,21 @@ int lbe_get_device_status(struct lbe_device* dev, struct lbe_status* status) {
 	}
 	status->outputs_enabled = (status->raw_status & 0x7F) == 0x7F;
 	status->fll_enabled = buf[19] != 0;
+
+	// Additional status information for LBE-1421
+	if (dev->model == LBE_1421_DUALOUT) {
+		status->pll_locked = (status->raw_status & LBE_PLL_LOCK_BIT) != 0;
+		status->antenna_ok = (status->raw_status & LBE_ANT_OK_BIT) != 0;
+		status->pps_enabled = (status->raw_status & LBE_PPS_EN_BIT) != 0;
+		status->out1_power_low = buf[20] != 0;
+		status->out2_power_low = buf[21] != 0;
+	} else {
+		status->pll_locked = 0;
+		status->antenna_ok = (status->raw_status & LBE_ANT_OK_BIT) != 0;
+		status->pps_enabled = 0;
+		status->out1_power_low = 0;
+		status->out2_power_low = 0;
+	}
 /*
 	printf("Raw report dump:\n");
 	for (int i = 0; i < REPORT_SIZE; i++) {
@@ -131,25 +170,24 @@ int lbe_get_device_status(struct lbe_device* dev, struct lbe_status* status) {
 
 int lbe_set_frequency(struct lbe_device* dev, int output, uint32_t frequency) {
 	uint8_t buf[REPORT_SIZE] = {0};
-	int ret;
 
 	if (dev->model == LBE_1420 && output != 1) {
 		fprintf(stderr, "LBE-1420 only supports output 1\n");
 		return -1;
 	}
 
-	buf[0] = 0x4B; // Report ID 0x4B
+	buf[0] = 0x4B; // Report ID
 	if (dev->model == LBE_1420) {
-		buf[1] = LBE_1420_SET_F1; // Command
+		buf[1] = LBE_1420_SET_F1;
 		buf[2] = (frequency >>  0) & 0xff;
 		buf[3] = (frequency >>  8) & 0xff;
 		buf[4] = (frequency >> 16) & 0xff;
 		buf[5] = (frequency >> 24) & 0xff;
 	} else { // LBE_1421_DUALOUT
 		if (output == 1) {
-			buf[1] = LBE_1421_SET_F1; // Command
+			buf[1] = LBE_1421_SET_F1;
 		} else if (output == 2) {
-			buf[1] = LBE_1421_SET_F2; // Command
+			buf[1] = LBE_1421_SET_F2;
 		} else {
 			fprintf(stderr, "Invalid output selection\n");
 			return -1;
@@ -160,73 +198,99 @@ int lbe_set_frequency(struct lbe_device* dev, int output, uint32_t frequency) {
 		buf[9] = (frequency >> 24) & 0xff;
 	}
 
-	ret = libusb_control_transfer(dev->handle,
-				LIBUSB_ENDPOINT_OUT | LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE,
-				LIBUSB_REQUEST_SET_REPORT,
-				(LIBUSB_REPORT_TYPE_FEATURE << 8) | buf[0],
-				0,
-				buf,
-				REPORT_SIZE,
-				5000);
+	return send_feature_report(dev, buf, REPORT_SIZE);
+}
 
-	if (ret < 0) {
-		fprintf(stderr, "Failed to set frequency: %s\n", libusb_error_name(ret));
-		return -1;
+int lbe_set_frequency_temp(struct lbe_device* dev, int output, uint32_t frequency) {
+	uint8_t buf[REPORT_SIZE] = {0};
+
+	buf[0] = 0x4B; // Report ID
+	if (dev->model == LBE_1420) {
+		buf[1] = LBE_1421_SET_F1_TEMP;
+		buf[2] = (frequency >>  0) & 0xff;
+		buf[3] = (frequency >>  8) & 0xff;
+		buf[4] = (frequency >> 16) & 0xff;
+		buf[5] = (frequency >> 24) & 0xff;
+	} else { // LBE_1421_DUALOUT
+		if (output == 1) {
+			buf[1] = LBE_1421_SET_F1_TEMP;
+		} else if (output == 2) {
+			buf[1] = LBE_1421_SET_F2_TEMP;
+		} else {
+			fprintf(stderr, "Invalid output selection\n");
+			return -1;
+		}
+		buf[6] = (frequency >>  0) & 0xff;
+		buf[7] = (frequency >>  8) & 0xff;
+		buf[8] = (frequency >> 16) & 0xff;
+		buf[9] = (frequency >> 24) & 0xff;
 	}
 
-	return 0;
+	return send_feature_report(dev, buf, REPORT_SIZE);
 }
 
 int lbe_set_outputs_enable(struct lbe_device* dev, int enable) {
 	uint8_t buf[REPORT_SIZE] = {0};
-	int ret;
 
-	buf[0] = 0x4B; // Report ID 0x4B
-	buf[1] = LBE_142X_EN_OUT; // Command
+	buf[0] = 0x4B; // Report ID
+	buf[1] = LBE_142X_EN_OUT;
 	buf[2] = enable ? (dev->model == LBE_1421_DUALOUT ? 0x03 : 0x01) : 0x00;
 
-	ret = libusb_control_transfer(dev->handle,
-				LIBUSB_ENDPOINT_OUT | LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE,
-				LIBUSB_REQUEST_SET_REPORT,
-				(LIBUSB_REPORT_TYPE_FEATURE << 8) | buf[0],
-				0,
-				buf,
-				REPORT_SIZE,
-				5000);
-
-	if (ret < 0) {
-		fprintf(stderr, "Failed to set output enable: %s\n", libusb_error_name(ret));
-		return -1;
-	}
-
-	return 0;
+	return send_feature_report(dev, buf, REPORT_SIZE);
 }
 
 int lbe_blink_leds(struct lbe_device* dev) {
 	uint8_t buf[REPORT_SIZE] = {0};
-	int ret;
 
-	buf[0] = 0x4B; // Report ID 0x4B
-	buf[1] = LBE_142X_BLINK_OUT; // Command 
+	buf[0] = 0x4B; // Report ID
+	buf[1] = LBE_142X_BLINK_OUT;
 
-	ret = libusb_control_transfer(dev->handle,
-				LIBUSB_ENDPOINT_OUT | LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE,
-				LIBUSB_REQUEST_SET_REPORT,
-				(LIBUSB_REPORT_TYPE_FEATURE << 8) | buf[0],
-				0,
-				buf,
-				REPORT_SIZE,
-				5000);
-	if (ret >= 0) {
-		return 0;
-	} else if (ret == LIBUSB_ERROR_PIPE) {
-		libusb_clear_halt(dev->handle, LIBUSB_ENDPOINT_OUT);
-		fprintf(stderr, "Failed to blink LEDs: %s\n", libusb_error_name(ret));
-		return -1;
-	} else {
-		fprintf(stderr, "Failed to blink LEDs: %s\n", libusb_error_name(ret));
+	return send_feature_report(dev, buf, REPORT_SIZE);
+}
+
+int lbe_set_pll_mode(struct lbe_device* dev, int fll_mode) {
+	uint8_t buf[REPORT_SIZE] = {0};
+
+	if (dev->model != LBE_1421_DUALOUT) {
+		fprintf(stderr, "PLL/FLL mode control is only supported on LBE-1421\n");
 		return -1;
 	}
+
+	buf[0] = 0x4B; // Report ID
+	buf[1] = LBE_1421_SET_PLL;
+	buf[2] = fll_mode ? 0x01 : 0x00;
+
+	return send_feature_report(dev, buf, REPORT_SIZE);
+}
+
+int lbe_set_1pps(struct lbe_device* dev, int enable) {
+	uint8_t buf[REPORT_SIZE] = {0};
+
+	if (dev->model != LBE_1421_DUALOUT) {
+		fprintf(stderr, "1PPS control is only supported on LBE-1421\n");
+		return -1;
+	}
+
+	buf[0] = 0x4B; // Report ID
+	buf[1] = LBE_1421_SET_PPS;
+	buf[2] = enable ? 0x01 : 0x00;
+
+	return send_feature_report(dev, buf, REPORT_SIZE);
+}
+
+int lbe_set_power_level(struct lbe_device* dev, int output, int low_power) {
+	uint8_t buf[REPORT_SIZE] = {0};
+
+	if (dev->model == LBE_1420 && output != 1) {
+		fprintf(stderr, "LBE-1420 only supports output 1\n");
+		return -1;
+	}
+
+	buf[0] = 0x4B; // Report ID
+	buf[1] = (output == 1) ? LBE_1421_SET_PWR1 : LBE_1421_SET_PWR2;
+	buf[2] = low_power ? 0x01 : 0x00;
+
+	return send_feature_report(dev, buf, REPORT_SIZE);
 }
 
 #endif // _WIN32

@@ -8,10 +8,16 @@ void print_usage(void) {
 	printf("Usage: lbe-142x [OPTIONS]\n");
 	printf("Options:\n");
 	printf("  --f1 <freq> Set frequency for output 1 (1-1400000000 Hz) and save to flash\n");
-	printf("  --f2 <freq> Set frequency for output 2 (1-1400000000 Hz) and save to flash (LBE-1421 dual output only)\n");
+	printf("  --f1t <freq> Set temporary frequency for output 1\n");
+	printf("  --f2 <freq> Set frequency for output 2 (1-1400000000 Hz) and save to flash (LBE-1421 only)\n");
+	printf("  --f2t <freq> Set temporary frequency for output 2 (LBE-1421 only)\n");
 	printf("  --out <0|1> Enable or disable outputs\n");
-	printf("  --blink     Blink output LED(s) for 3 seconds\n");
-	printf("  --status    Display current device status\n");
+	printf("  --pll <0|1> Set PLL(0) or FLL(1) mode (LBE-1421 only)\n");
+	printf("  --pps <0|1> Enable or disable 1PPS on OUT1 (LBE-1421 only)\n");
+	printf("  --pwr1 <0|1> Set OUT1 power level: normal(0) or low(1)\n");
+	printf("  --pwr2 <0|1> Set OUT2 power level: normal(0) or low(1) (LBE-1421 only)\n");
+	printf("  --blink Blink output LED(s) for 3 seconds\n");
+	printf("  --status Display current device status\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -20,7 +26,7 @@ int main(int argc, char *argv[]) {
 	enum lbe_model model;
 	int changed = 0;
 
-	printf("Leo Bodnar LBE-142x GPS locked clock source config\n");
+	printf("lbe-142x v1.0 13 Dec 2024 Leo Bodnar LBE-142x GPS locked clock source config\n");
 
 	if (argc == 1) {
 		print_usage();
@@ -37,21 +43,32 @@ int main(int argc, char *argv[]) {
 	printf("Connected to LBE-%s\n", model == LBE_1420 ? "1420" : "1421 dual output");
 
 	for (int i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "--f1") == 0 || strcmp(argv[i], "--f2") == 0) {
+		if (strcmp(argv[i], "--f1") == 0 || strcmp(argv[i], "--f2") == 0 || 
+			strcmp(argv[i], "--f1t") == 0 || strcmp(argv[i], "--f2t") == 0) {
 			if (i + 1 < argc) {
 				int out_no = (argv[i][3] == '1') ? 1 : 2;
+				int temp = (argv[i][4] == 't');
+				
 				if (out_no == 2 && model == LBE_1420) {
 					fprintf(stderr, "LBE-1420 does not support output 2\n");
 					continue;
 				}
+
 				uint32_t new_freq = atoi(argv[++i]);
-				if (new_freq >= 1 && new_freq <= 1400000000) {
-					if (lbe_set_frequency(dev, out_no, new_freq) == 0) {
-						printf("  Setting OUT%d Frequency: %u Hz\n", out_no, new_freq);
-						changed = 1;
+				if (new_freq >= 1 && new_freq <= LBE_MAX_FREQ) {
+					if (temp) {
+						if (lbe_set_frequency_temp(dev, out_no, new_freq) == 0) {
+							printf("  Setting OUT%d temporary frequency: %u Hz\n", out_no, new_freq);
+							changed = 1;
+						}
+					} else {
+						if (lbe_set_frequency(dev, out_no, new_freq) == 0) {
+							printf("  Setting OUT%d frequency and saving to flash: %u Hz\n", out_no, new_freq);
+							changed = 1;
+						}
 					}
 				} else {
-					fprintf(stderr, "Invalid frequency: %u\n", new_freq);
+					fprintf(stderr, "Invalid frequency: %u (range: 1-%lu Hz)\n", new_freq, LBE_MAX_FREQ);
 				}
 			}
 		} else if (strcmp(argv[i], "--out") == 0) {
@@ -59,11 +76,60 @@ int main(int argc, char *argv[]) {
 				int enable = atoi(argv[++i]);
 				if (enable == 0 || enable == 1) {
 					if (lbe_set_outputs_enable(dev, enable) == 0) {
-						printf("  Set output(s) to %d\n", enable);
+						printf("  Set output(s) to %s\n", enable ? "enabled" : "disabled");
 						changed = 1;
 					}
 				} else {
 					fprintf(stderr, "Invalid output state: %d\n", enable);
+				}
+			}
+		} else if (strcmp(argv[i], "--pll") == 0) {
+			if (model != LBE_1421_DUALOUT) {
+				fprintf(stderr, "PLL/FLL mode control is only supported on LBE-1421\n");
+				continue;
+			}
+			if (i + 1 < argc) {
+				int fll_mode = atoi(argv[++i]);
+				if (fll_mode == 0 || fll_mode == 1) {
+					if (lbe_set_pll_mode(dev, fll_mode) == 0) {
+						printf("  Set %s mode\n", fll_mode ? "FLL" : "PLL");
+						changed = 1;
+					}
+				} else {
+					fprintf(stderr, "Invalid PLL/FLL mode: %d\n", fll_mode);
+				}
+			}
+		} else if (strcmp(argv[i], "--pps") == 0) {
+			if (model != LBE_1421_DUALOUT) {
+				fprintf(stderr, "1PPS on OUT1 control is only supported on LBE-1421\n");
+				continue;
+			}
+			if (i + 1 < argc) {
+				int enable = atoi(argv[++i]);
+				if (enable == 0 || enable == 1) {
+					if (lbe_set_1pps(dev, enable) == 0) {
+						printf("  Set 1PPS on OUT1 to %s\n", enable ? "enabled" : "disabled");
+						changed = 1;
+					}
+				} else {
+					fprintf(stderr, "Invalid 1PPS state: %d\n", enable);
+				}
+			}
+		} else if (strcmp(argv[i], "--pwr1") == 0 || strcmp(argv[i], "--pwr2") == 0) {
+			int out_no = argv[i][5] - '0';
+			if (out_no == 2 && model == LBE_1420) {
+				fprintf(stderr, "LBE-1420 does not support output 2\n");
+				continue;
+			}
+			if (i + 1 < argc) {
+				int low_power = atoi(argv[++i]);
+				if (low_power == 0 || low_power == 1) {
+					if (lbe_set_power_level(dev, out_no, low_power) == 0) {
+						printf("  Set OUT%d power to %s\n", out_no, low_power ? "low" : "normal");
+						changed = 1;
+					}
+				} else {
+					fprintf(stderr, "Invalid power level: %d\n", low_power);
 				}
 			}
 		} else if (strcmp(argv[i], "--blink") == 0) {
@@ -73,14 +139,19 @@ int main(int argc, char *argv[]) {
 			}
 		} else if (strcmp(argv[i], "--status") == 0) {
 			if (lbe_get_device_status(dev, &status) == 0) {
-				printf("Device Status(0x%02X):\n", status.raw_status);
+				printf("Device Status (0x%02X):\n", status.raw_status);
 				printf("  GPS Lock: %s\n", (status.raw_status & LBE_GPS_LOCK_BIT) ? "Yes" : "No");
-				printf("  Antenna: %s\n", (status.raw_status & LBE_ANT_OK_BIT) ? "OK" : "Short Circuit");
+				printf("  PLL Lock: %s\n", status.pll_locked ? "Yes" : "No");
+				printf("  Antenna: %s\n", status.antenna_ok ? "OK" : "Short Circuit");
 				printf("  Output(s) Enabled: %s\n", status.outputs_enabled ? "Yes" : "No");
-				printf("  Frequency 1: %u Hz\n", status.frequency1);
+				printf("  OUT1 Frequency: %u Hz\n", status.frequency1);
+				printf("  OUT1 Power Level: %s\n", status.out1_power_low ? "Low" : "Normal");
+				
 				if (model == LBE_1421_DUALOUT) {
-					printf("  Frequency 2: %u Hz\n", status.frequency2);
-					printf("  FLL Enabled: %s\n", status.fll_enabled ? "Yes" : "No");
+					printf("  OUT2 Frequency: %u Hz\n", status.frequency2);
+					printf("  OUT2 Power Level: %s\n", status.out2_power_low ? "Low" : "Normal");
+					printf("  Mode: %s\n", status.fll_enabled ? "FLL" : "PLL");
+					printf("  1PPS on OUT1: %s\n", status.pps_enabled ? "Enabled" : "Disabled");
 				}
 			}
 		} else {
