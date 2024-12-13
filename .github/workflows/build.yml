@@ -1,8 +1,10 @@
-name: Build Windows & GNU/Linux (ubuntu-22.04 and ubuntu-24.04)
+name: Build Windows & GNU/Linux
 
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main ]
 
@@ -11,26 +13,50 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
+    
     - name: Set up MSVC
       uses: microsoft/setup-msbuild@v2
+      
     - name: Set up CMake
       uses: lukka/get-cmake@latest
+      
     - name: Download and extract libusb
       run: |
         Invoke-WebRequest -Uri "https://github.com/libusb/libusb/releases/download/v1.0.27/libusb-1.0.27.7z" -OutFile "libusb.7z"
         7z x libusb.7z -olibusb
+      
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -G "Visual Studio 17 2022" -A x64
+      
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config Release
+
+    - name: Get version
+      id: get_version
+      run: |
+        if ("${{ github.ref_type }}" -eq "tag") {
+          $VERSION="${{ github.ref_name }}"
+          $VERSION=$VERSION.Replace(".", "_")
+          $VERSION=$VERSION.Replace("v", "")
+          echo "version=$VERSION" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "version=dev" >> $env:GITHUB_OUTPUT
+        }
+      shell: pwsh
+
+    - name: Create release archive
+      run: |
+        $VERSION="${{ steps.get_version.outputs.version }}"
+        $ARCHIVE_NAME="lbe-142x_${VERSION}-windows.zip"
+        Compress-Archive -Path "${{github.workspace}}/build/bin/Release/lbe-142x.exe","${{github.workspace}}/build/bin/Release/libusb-1.0.dll" -DestinationPath "${{github.workspace}}/$ARCHIVE_NAME"
+      shell: pwsh
+      
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: lbe-142x-windows
-        path: |
-          ${{github.workspace}}/build/bin/Release/lbe-142x.exe
-          ${{github.workspace}}/build/bin/Release/libusb-1.0.dll
-  
+        name: lbe-142x_${{ steps.get_version.outputs.version }}-windows
+        path: ${{github.workspace}}/lbe-142x_${{ steps.get_version.outputs.version }}-windows.zip
+
   build-linux:
     strategy:
       matrix:
@@ -38,18 +64,44 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
+    
     - name: Set up CMake
       uses: lukka/get-cmake@latest
+      
     - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libudev-dev
+        
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release
+      
     - name: Build
       run: cmake --build ${{github.workspace}}/build
+
+    - name: Get version
+      id: get_version
+      run: |
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION//./\_}"
+          VERSION="${VERSION//v/}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        else
+          echo "version=dev" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+
+    - name: Create release archive
+      run: |
+        VERSION="${{ steps.get_version.outputs.version }}"
+        ARCHIVE_NAME="lbe-142x_${VERSION}-${{ matrix.os }}.tar.gz"
+        cd ${{github.workspace}}/build/bin
+        tar czf ${{github.workspace}}/$ARCHIVE_NAME lbe-142x
+      shell: bash
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: lbe-142x-linux-${{ matrix.os }}
-        path: ${{github.workspace}}/build/bin/lbe-142x
+        name: lbe-142x_${{ steps.get_version.outputs.version }}-${{ matrix.os }}
+        path: ${{github.workspace}}/lbe-142x_${{ steps.get_version.outputs.version }}-${{ matrix.os }}.tar.gz
