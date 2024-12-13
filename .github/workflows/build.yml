@@ -28,7 +28,8 @@ jobs:
       with:
         name: lbe-142x-windows
         path: ${{github.workspace}}/build/bin/Release/lbe-142x.exe
-
+        path: ${{github.workspace}}/build/bin/Release/libusb-1.0.dll
+  
   build-linux:
     strategy:
       matrix:
