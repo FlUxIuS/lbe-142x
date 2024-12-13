@@ -54,8 +54,8 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: lbe-142x_${{ steps.get_version.outputs.version }}-windows
-        path: ${{github.workspace}}/lbe-142x_${{ steps.get_version.outputs.version }}-windows.zip
+        name: ${{github.workspace}}/lbe-142x_${{ steps.get_version.outputs.version }}-windows.zip
+        path: lbe-142x_${{ steps.get_version.outputs.version }}-windows.zip
 
   build-linux:
     strategy:
@@ -103,5 +103,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: lbe-142x_${{ steps.get_version.outputs.version }}-${{ matrix.os }}
-        path: ${{github.workspace}}/lbe-142x_${{ steps.get_version.outputs.version }}-${{ matrix.os }}.tar.gz
+        name: ${{github.workspace}}/lbe-142x_${{ steps.get_version.outputs.version }}-${{ matrix.os }}.tar.gz
+        path: lbe-142x_${{ steps.get_version.outputs.version }}-${{ matrix.os }}.tar.gz
