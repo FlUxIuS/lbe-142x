@@ -8,7 +8,7 @@ It allows users to configure device settings, set frequencies, and monitor devic
 
 ### Basic Features (Both Models LBE-1420/LBE-1421)
 - Cross-platform compatibility (Windows and GNU/Linux)
-- Set output frequencies with fractional Hz precision
+- Set output frequencies with Hz precision
 - Enable/disable outputs
 - Blink device LEDs for identification
 - Retrieve and display comprehensive device status
