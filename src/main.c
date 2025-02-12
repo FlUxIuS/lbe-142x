@@ -13,6 +13,7 @@ void print_usage(void) {
 	printf("  --f2t <freq> Set temporary frequency for output 2 (LBE-1421 only)\n");
 	printf("  --out <0|1> Enable or disable outputs\n");
 	printf("  --pll <0|1> Set PLL(0) or FLL(1) mode (LBE-1421 only)\n");
+	printf("  --fll <0|1> Enable FLL mode (LBE-1420 only)\n");
 	printf("  --pps <0|1> Enable or disable 1PPS on OUT1 (LBE-1421 only)\n");
 	printf("  --pwr1 <0|1> Set OUT1 power level: normal(0) or low(1)\n");
 	printf("  --pwr2 <0|1> Set OUT2 power level: normal(0) or low(1) (LBE-1421 only)\n");
@@ -99,6 +100,22 @@ int main(int argc, char *argv[]) {
 					fprintf(stderr, "Invalid PLL/FLL mode: %d\n", fll_mode);
 				}
 			}
+		} else if (strcmp(argv[i], "--fll") == 0) {
+			if (model != LBE_1420) {
+				fprintf(stderr, "FLL mode control is only supported on LBE-1420\n");
+				continue;
+			}
+			if (i + 1 < argc) {
+				int fll_mode = atoi(argv[++i]);
+				if (fll_mode == 0 || fll_mode == 1) {
+					if (lbe_set_fll_mode(dev, fll_mode) == 0) {
+						printf("  %s FLL mode\n", fll_mode ? "Enabling" : "Disabling");
+						changed = 1;
+					}
+				} else {
+					fprintf(stderr, "Invalid FLL mode: %d\n", fll_mode);
+				}
+			}
 		} else if (strcmp(argv[i], "--pps") == 0) {
 			if (model != LBE_1421_DUALOUT) {
 				fprintf(stderr, "1PPS on OUT1 control is only supported on LBE-1421\n");
@@ -152,6 +169,9 @@ int main(int argc, char *argv[]) {
 					printf("  OUT2 Power Level: %s\n", status.out2_power_low ? "Low" : "Normal");
 					printf("  Mode: %s\n", status.fll_enabled ? "FLL" : "PLL");
 					printf("  1PPS on OUT1: %s\n", status.pps_enabled ? "Enabled" : "Disabled");
+				}
+				if (model == LBE_1420) {
+					printf("  FLL Enabled: %s\n", status.fll_enabled ? "Yes" : "No");
 				}
 			}
 		} else {

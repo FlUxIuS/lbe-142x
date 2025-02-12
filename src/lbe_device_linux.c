@@ -131,17 +131,18 @@ int lbe_get_device_status(struct lbe_device* dev, struct lbe_status* status) {
 		status->pll_locked = 0;
 		status->antenna_ok = (status->raw_status & LBE_ANT_OK_BIT) != 0;
 		status->pps_enabled = 0;
-		status->out1_power_low = 0;
+		status->out1_power_low = buf[10] != 0;
 		status->out2_power_low = 0;
+		status->outputs_enabled = 1; // Seems to be always on even with legit soft
 	}
-/*
-	printf("Raw report dump:\n");
+
+	/*printf("Raw report dump:\n");
 	for (int i = 0; i < REPORT_SIZE; i++) {
 		printf("%02X ", buf[i]);
 		if ((i + 1) % 16 == 0) printf("\n");
 	}
-	printf("\n");
-*/
+	printf("\n");*/
+
 	return 0;
 }
 
@@ -194,7 +195,7 @@ int lbe_set_frequency_temp(struct lbe_device* dev, int output, uint32_t frequenc
 	}
 
 	if (dev->model == LBE_1420) {
-		buf[0] = LBE_1421_SET_F1_TEMP;
+		buf[0] = LBE_1420_SET_F1_TMP;
 		buf[1] = (frequency >>  0) & 0xff;
 		buf[2] = (frequency >>  8) & 0xff;
 		buf[3] = (frequency >> 16) & 0xff;
@@ -275,6 +276,27 @@ int lbe_set_pll_mode(struct lbe_device* dev, int fll_mode) {
 	return 0;
 }
 
+int lbe_set_fll_mode(struct lbe_device* dev, int fll_mode) {
+	uint8_t buf[REPORT_SIZE] = {0};
+	int res;
+
+	if (dev->model != LBE_1420) {
+		fprintf(stderr, "FLL mode control is only supported on LBE-1420\n");
+		return -1;
+	}
+
+	buf[0] = LBE_1420_SET_FLL;
+	buf[1] = fll_mode ? 0x01 : 0x00;
+
+	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
+	if (res < 0) {
+		perror("HIDIOCSFEATURE");
+		return -1;
+	}
+
+	return 0;
+}
+
 int lbe_set_1pps(struct lbe_device* dev, int enable) {
 	uint8_t buf[REPORT_SIZE] = {0};
 	int res;
@@ -299,13 +321,18 @@ int lbe_set_1pps(struct lbe_device* dev, int enable) {
 int lbe_set_power_level(struct lbe_device* dev, int output, int low_power) {
 	uint8_t buf[REPORT_SIZE] = {0};
 	int res;
+	int cmdpwrlevel = LBE_1421_SET_PWR1;
 
 	if (dev->model == LBE_1420 && output != 1) {
 		fprintf(stderr, "LBE-1420 only supports output 1\n");
 		return -1;
 	}
 
-	buf[0] = (output == 1) ? LBE_1421_SET_PWR1 : LBE_1421_SET_PWR2;
+	if (dev->model == LBE_1420) {
+		cmdpwrlevel = LBE_1420_SET_PWR1;
+	}
+
+	buf[0] = (output == 1) ? cmdpwrlevel : LBE_1421_SET_PWR2;
 	buf[1] = low_power ? 0x01 : 0x00;
 
 	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
