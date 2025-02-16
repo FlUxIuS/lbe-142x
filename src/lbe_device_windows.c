@@ -143,9 +143,9 @@ int lbe_get_device_status(struct lbe_device* dev, struct lbe_status* status) {
 	status->outputs_enabled = (status->raw_status & 0x7F) == 0x7F;
 	status->fll_enabled = buf[19] != 0;
 
+	status->pll_locked = (status->raw_status & LBE_PLL_LOCK_BIT) != 0;
 	// Additional status information for LBE-1421
 	if (dev->model == LBE_1421_DUALOUT) {
-		status->pll_locked = (status->raw_status & LBE_PLL_LOCK_BIT) != 0;
 		status->antenna_ok = (status->raw_status & LBE_ANT_OK_BIT) != 0;
 		status->pps_enabled = (status->raw_status & LBE_PPS_EN_BIT) != 0;
 		status->out1_power_low = buf[20] != 0;
@@ -206,7 +206,7 @@ int lbe_set_frequency_temp(struct lbe_device* dev, int output, uint32_t frequenc
 
 	buf[0] = 0x4B; // Report ID
 	if (dev->model == LBE_1420) {
-		buf[1] = LBE_1421_SET_F1_TEMP;
+		buf[1] = LBE_1420_SET_F1_TEMP;
 		buf[2] = (frequency >>  0) & 0xff;
 		buf[3] = (frequency >>  8) & 0xff;
 		buf[4] = (frequency >> 16) & 0xff;
@@ -257,7 +257,7 @@ int lbe_set_pll_mode(struct lbe_device* dev, int fll_mode) {
 	}
 
 	buf[0] = 0x4B; // Report ID
-	buf[1] = LBE_142x_SET_PLL;
+	buf[1] = LBE_142X_SET_PLL;
 	buf[2] = fll_mode ? 0x01 : 0x00;
 
 	return send_feature_report(dev, buf, REPORT_SIZE);
@@ -280,14 +280,19 @@ int lbe_set_1pps(struct lbe_device* dev, int enable) {
 
 int lbe_set_power_level(struct lbe_device* dev, int output, int low_power) {
 	uint8_t buf[REPORT_SIZE] = {0};
+	int cmdpwrlevel = LBE_1421_SET_PWR1;
 
 	if (dev->model == LBE_1420 && output != 1) {
 		fprintf(stderr, "LBE-1420 only supports output 1\n");
 		return -1;
 	}
 
+	if (dev->model == LBE_1420) {
+		cmdpwrlevel = LBE_1420_SET_PWR1;
+	}
+
 	buf[0] = 0x4B; // Report ID
-	buf[1] = (output == 1) ? LBE_1421_SET_PWR1 : LBE_1421_SET_PWR2;
+	buf[1] = (output == 1) ? cmdpwrlevel : LBE_1421_SET_PWR2;
 	buf[2] = low_power ? 0x01 : 0x00;
 
 	return send_feature_report(dev, buf, REPORT_SIZE);

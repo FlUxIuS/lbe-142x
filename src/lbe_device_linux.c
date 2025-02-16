@@ -259,7 +259,7 @@ int lbe_set_pll_mode(struct lbe_device* dev, int fll_mode) {
 	uint8_t buf[REPORT_SIZE] = {0};
 	int res;
 
-	buf[0] = LBE_142x_SET_PLL;
+	buf[0] = LBE_142X_SET_PLL;
 	buf[1] = fll_mode ? 0x01 : 0x00;
 
 	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
