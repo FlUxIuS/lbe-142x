@@ -257,7 +257,7 @@ int lbe_set_pll_mode(struct lbe_device* dev, int fll_mode) {
 	}
 
 	buf[0] = 0x4B; // Report ID
-	buf[1] = LBE_1421_SET_PLL;
+	buf[1] = LBE_142x_SET_PLL;
 	buf[2] = fll_mode ? 0x01 : 0x00;
 
 	return send_feature_report(dev, buf, REPORT_SIZE);
