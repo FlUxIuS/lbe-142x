@@ -12,8 +12,7 @@ void print_usage(void) {
 	printf("  --f2 <freq> Set frequency for output 2 (1-1400000000 Hz) and save to flash (LBE-1421 only)\n");
 	printf("  --f2t <freq> Set temporary frequency for output 2 (LBE-1421 only)\n");
 	printf("  --out <0|1> Enable or disable outputs\n");
-	printf("  --pll <0|1> Set PLL(0) or FLL(1) mode (LBE-1421 only)\n");
-	printf("  --fll <0|1> Enable FLL mode (LBE-1420 only)\n");
+	printf("  --pll <0|1> Set PLL(0) or FLL(1) mode\n");
 	printf("  --pps <0|1> Enable or disable 1PPS on OUT1 (LBE-1421 only)\n");
 	printf("  --pwr1 <0|1> Set OUT1 power level: normal(0) or low(1)\n");
 	printf("  --pwr2 <0|1> Set OUT2 power level: normal(0) or low(1) (LBE-1421 only)\n");
@@ -85,10 +84,6 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		} else if (strcmp(argv[i], "--pll") == 0) {
-			if (model != LBE_1421_DUALOUT) {
-				fprintf(stderr, "PLL/FLL mode control is only supported on LBE-1421\n");
-				continue;
-			}
 			if (i + 1 < argc) {
 				int fll_mode = atoi(argv[++i]);
 				if (fll_mode == 0 || fll_mode == 1) {
@@ -98,22 +93,6 @@ int main(int argc, char *argv[]) {
 					}
 				} else {
 					fprintf(stderr, "Invalid PLL/FLL mode: %d\n", fll_mode);
-				}
-			}
-		} else if (strcmp(argv[i], "--fll") == 0) {
-			if (model != LBE_1420) {
-				fprintf(stderr, "FLL mode control is only supported on LBE-1420\n");
-				continue;
-			}
-			if (i + 1 < argc) {
-				int fll_mode = atoi(argv[++i]);
-				if (fll_mode == 0 || fll_mode == 1) {
-					if (lbe_set_fll_mode(dev, fll_mode) == 0) {
-						printf("  %s FLL mode\n", fll_mode ? "Enabling" : "Disabling");
-						changed = 1;
-					}
-				} else {
-					fprintf(stderr, "Invalid FLL mode: %d\n", fll_mode);
 				}
 			}
 		} else if (strcmp(argv[i], "--pps") == 0) {
@@ -170,9 +149,7 @@ int main(int argc, char *argv[]) {
 					printf("  Mode: %s\n", status.fll_enabled ? "FLL" : "PLL");
 					printf("  1PPS on OUT1: %s\n", status.pps_enabled ? "Enabled" : "Disabled");
 				}
-				if (model == LBE_1420) {
-					printf("  FLL Enabled: %s\n", status.fll_enabled ? "Yes" : "No");
-				}
+				printf("  %s mode enabled\n", status.fll_enabled ? "FLL" : "PLL");
 			}
 		} else {
 			fprintf(stderr, "Unknown option: %s\n", argv[i]);

@@ -23,7 +23,7 @@
 #define LBE_1421_SET_F1      0x06
 #define LBE_1421_SET_F2_TEMP 0x09
 #define LBE_1421_SET_F2      0x0A
-#define LBE_1421_SET_PLL     0x0B
+#define LBE_142x_SET_PLL     0x0B
 #define LBE_1421_SET_PPS     0x0C
 #define LBE_1421_SET_PWR1    0x0D
 #define LBE_1421_SET_PWR2    0x0E
@@ -32,7 +32,6 @@
 #define LBE_1420_SET_F1_TMP	 0x03
 #define LBE_1420_SET_F1      0x04
 #define LBE_1420_SET_PWR1    0x07
-#define LBE_1420_SET_FLL     0x0B
 
 /* Max supported frequency in Hz */
 #define LBE_MAX_FREQ 1400000000UL

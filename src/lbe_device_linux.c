@@ -119,10 +119,10 @@ int lbe_get_device_status(struct lbe_device* dev, struct lbe_status* status) {
 	}
 	status->outputs_enabled = (status->raw_status & 0x7F) == 0x7F;
 	status->fll_enabled = buf[18] != 0;
+	status->pll_locked = (status->raw_status & LBE_PLL_LOCK_BIT) != 0;
 
 	// Additional status information for LBE-1421
 	if (dev->model == LBE_1421_DUALOUT) {
-		status->pll_locked = (status->raw_status & LBE_PLL_LOCK_BIT) != 0;
 		status->antenna_ok = (status->raw_status & LBE_ANT_OK_BIT) != 0;
 		status->pps_enabled = (status->raw_status & LBE_PPS_EN_BIT) != 0;
 		status->out1_power_low = buf[19] != 0;
@@ -259,33 +259,7 @@ int lbe_set_pll_mode(struct lbe_device* dev, int fll_mode) {
 	uint8_t buf[REPORT_SIZE] = {0};
 	int res;
 
-	if (dev->model != LBE_1421_DUALOUT) {
-		fprintf(stderr, "PLL/FLL mode control is only supported on LBE-1421\n");
-		return -1;
-	}
-
-	buf[0] = LBE_1421_SET_PLL;
-	buf[1] = fll_mode ? 0x01 : 0x00;
-
-	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
-	if (res < 0) {
-		perror("HIDIOCSFEATURE");
-		return -1;
-	}
-
-	return 0;
-}
-
-int lbe_set_fll_mode(struct lbe_device* dev, int fll_mode) {
-	uint8_t buf[REPORT_SIZE] = {0};
-	int res;
-
-	if (dev->model != LBE_1420) {
-		fprintf(stderr, "FLL mode control is only supported on LBE-1420\n");
-		return -1;
-	}
-
-	buf[0] = LBE_1420_SET_FLL;
+	buf[0] = LBE_142x_SET_PLL;
 	buf[1] = fll_mode ? 0x01 : 0x00;
 
 	res = ioctl(dev->fd, HIDIOCSFEATURE(REPORT_SIZE), buf);
