@@ -195,7 +195,7 @@ int lbe_set_frequency_temp(struct lbe_device* dev, int output, uint32_t frequenc
 	}
 
 	if (dev->model == LBE_1420) {
-		buf[0] = LBE_1420_SET_F1_TMP;
+		buf[0] = LBE_1420_SET_F1_TEMP;
 		buf[1] = (frequency >>  0) & 0xff;
 		buf[2] = (frequency >>  8) & 0xff;
 		buf[3] = (frequency >> 16) & 0xff;
